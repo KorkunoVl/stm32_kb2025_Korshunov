@@ -2,6 +2,7 @@
 #include <stm32f10x.h>
 #include <stdbool.h>
 
+
 void delay_us(uint32_t us) { //8 ticks/iteration
     __asm volatile (
         "push {r0}\r\n"
@@ -17,8 +18,10 @@ void delay_us(uint32_t us) { //8 ticks/iteration
         :: "r"(9 * us) //for 72 Mhz
     );
 }
-/* Interrupt handler*/
 
+
+
+/* Interrupt handler*/
 void TIM2_IRQHandler(void) {
     if (TIM2->SR & TIM_SR_UIF) {
         if(GPIOC->ODR & GPIO_ODR_ODR13){
@@ -43,18 +46,31 @@ int main(void) {
     GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13); // GPIOC->CRH[23:20]=0000
     GPIOC->CRH |= GPIO_CRH_MODE13_0; // GPIOC->CRH[23:20]=0001
 
+    RCC->APB2ENR |= RCC_APB2ENR_IOPBEN; // 0b10000=0x10
+    GPIOB->CRL &= ~(GPIO_CRL_CNF0 | GPIO_CRL_MODE0); // GPIOC->CRH[3:0]=0000
+    GPIOB->CRL |= GPIO_CRL_CNF0_1; // GPIOB->CRH[3:0]=1000
+    GPIOB->ODR |= GPIO_ODR_ODR0; //PB0 Internal pull-up resister
+
     /* TIM2 Configuration */
-    RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
+    /*RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
     RCC->APB1RSTR |= RCC_APB1RSTR_TIM2RST;
     RCC->APB1RSTR &= ~RCC_APB1RSTR_TIM2RST;
-    TIM2->PSC = 1023;
-    TIM2->ARR = 4095;
+    TIM2->PSC = 4000;
+    TIM2->ARR = 20000;
     TIM2->DIER |= TIM_DIER_UIE; // Enable Update Interrupt
     NVIC_ClearPendingIRQ(TIM2_IRQn);
     NVIC_EnableIRQ(TIM2_IRQn); // Enable IRQ in NVIC
     TIM2->CR1 |= TIM_CR1_CEN; // Start timer
     while (1) {
         __asm volatile ("nop");
+    }*/
+
+    while(1){
+        if(GPIOB->IDR & GPIO_IDR_IDR0){
+            GPIOC->ODR &= ~GPIO_ODR_ODR13;
+        } else {
+            GPIOC->ODR |= GPIO_ODR_ODR13;
+        }
     }
 
     /*while(1){
