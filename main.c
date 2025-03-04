@@ -18,6 +18,7 @@ void delay_us(uint32_t us) { //8 ticks/iteration
     );
 }
 /* Interrupt handler*/
+
 void TIM2_IRQHandler(void) {
     if (TIM2->SR & TIM_SR_UIF) {
         if(GPIOC->ODR & GPIO_ODR_ODR13){
@@ -25,10 +26,12 @@ void TIM2_IRQHandler(void) {
         } else {
             GPIOC->ODR |= GPIO_ODR_ODR13;
         }
+
     //Clear interrupt flag
     TIM2->SR &= ~TIM_SR_UIF;
     }
 }
+
 
 int main(void) {
     // int i = 0;
@@ -44,13 +47,13 @@ int main(void) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
     RCC->APB1RSTR |= RCC_APB1RSTR_TIM2RST;
     RCC->APB1RSTR &= ~RCC_APB1RSTR_TIM2RST;
-    TIM2->PSC = 4000;
-    TIM2->ARR = 18000;
+    TIM2->PSC = 1023;
+    TIM2->ARR = 4095;
     TIM2->DIER |= TIM_DIER_UIE; // Enable Update Interrupt
     NVIC_ClearPendingIRQ(TIM2_IRQn);
     NVIC_EnableIRQ(TIM2_IRQn); // Enable IRQ in NVIC
     TIM2->CR1 |= TIM_CR1_CEN; // Start timer
-    while(1){
+    while (1) {
         __asm volatile ("nop");
     }
 
@@ -60,5 +63,6 @@ int main(void) {
         GPIOC->ODR |= GPIO_ODR_ODR13;
         delay_us(1000000);
     }*/
-    return 0;
+
+return 0;
 }
