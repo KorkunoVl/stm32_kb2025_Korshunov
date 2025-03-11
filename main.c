@@ -52,7 +52,7 @@ int main(void) {
     GPIOB->ODR |= GPIO_ODR_ODR0; //PB0 Internal pull-up resister
 
     /* TIM2 Configuration */
-    /*RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
     RCC->APB1RSTR |= RCC_APB1RSTR_TIM2RST;
     RCC->APB1RSTR &= ~RCC_APB1RSTR_TIM2RST;
     TIM2->PSC = 4000;
@@ -63,14 +63,10 @@ int main(void) {
     TIM2->CR1 |= TIM_CR1_CEN; // Start timer
     while (1) {
         __asm volatile ("nop");
-    }*/
+    }
 
     while(1){
-        if(GPIOB->IDR & GPIO_IDR_IDR0){
-            GPIOC->ODR &= ~GPIO_ODR_ODR13;
-        } else {
-            GPIOC->ODR |= GPIO_ODR_ODR13;
-        }
+
     }
 
     /*while(1){
