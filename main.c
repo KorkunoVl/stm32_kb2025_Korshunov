@@ -2,6 +2,7 @@
 #include <stm32f10x.h>
 #include <stdbool.h>
 
+int blink_on = 1;
 
 void delay_us(uint32_t us) { //8 ticks/iteration
     __asm volatile (
@@ -35,6 +36,18 @@ void TIM2_IRQHandler(void) {
     }
 }
 
+/* EXTI0 Interrupt handler */
+void EXTI0_IRQHandler() {
+    EXTI->PR=EXTI_PR_PR0; // Сбрасываем прерывание
+    if (blink_on == 1) {
+        TIM2->CR1 &= ~TIM_CR1_CEN; // Stop timer
+        blink_on = 0;
+    } else {
+        TIM2->CR1 |= TIM_CR1_CEN; // Start timer
+        blink_on = 1;
+    }
+    delay_us(100);
+}
 
 int main(void) {
     // int i = 0;
@@ -46,17 +59,25 @@ int main(void) {
     GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13); // GPIOC->CRH[23:20]=0000
     GPIOC->CRH |= GPIO_CRH_MODE13_0; // GPIOC->CRH[23:20]=0001
 
-    RCC->APB2ENR |= RCC_APB2ENR_IOPBEN; // 0b10000=0x10
+    // Port PB0 as Input
+    RCC->APB2ENR |= RCC_APB2ENR_IOPBEN | RCC_APB2ENR_AFIOEN; // 0b10000=0x10
     GPIOB->CRL &= ~(GPIO_CRL_CNF0 | GPIO_CRL_MODE0); // GPIOC->CRH[3:0]=0000
     GPIOB->CRL |= GPIO_CRL_CNF0_1; // GPIOB->CRH[3:0]=1000
     GPIOB->ODR |= GPIO_ODR_ODR0; //PB0 Internal pull-up resister
+
+    // EXT10 Configuration
+    AFIO->EXTICR[0] = AFIO_EXTICR1_EXTI0_PB; // EXTI0=PB0
+    EXTI->FTSR=EXTI_FTSR_TR0; // EXTI0 enable failing edge detection
+    EXTI->IMR=EXTI_IMR_MR0; // Enable interrupt on EXTI0
+    NVIC_SetPriority(EXTI0_IRQn, 0); //Делаем прерывание высокоприоритетным
+    NVIC_EnableIRQ(EXTI0_IRQn); // Enable interrupt EXTI0
 
     /* TIM2 Configuration */
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
     RCC->APB1RSTR |= RCC_APB1RSTR_TIM2RST;
     RCC->APB1RSTR &= ~RCC_APB1RSTR_TIM2RST;
-    TIM2->PSC = 4000;
-    TIM2->ARR = 20000;
+    TIM2->PSC = 2000;
+    TIM2->ARR = 2000;
     TIM2->DIER |= TIM_DIER_UIE; // Enable Update Interrupt
     NVIC_ClearPendingIRQ(TIM2_IRQn);
     NVIC_EnableIRQ(TIM2_IRQn); // Enable IRQ in NVIC
