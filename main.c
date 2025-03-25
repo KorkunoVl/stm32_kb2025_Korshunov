@@ -36,6 +36,33 @@ void TIM2_IRQHandler(void) {
     }
 }
 
+void SPI1_Write(uint8_t data){
+    while(!(SPI1->SR & SPI_SR_TXE));
+    SPI1->DR = data;
+}
+
+uint8_t SPI1_Read(void){
+    SPI1->DR = 0;
+    While(!(SPI1->SR & SPI_SR_RXNE));
+    return SPI1->DR;
+}
+
+void cmd(uint8_t data){
+    GPIOA->ODR &= ~GPIO_ODR_ODR12; // A0=0 --указание на то, что отправляем команду
+    GPIOA->ODR &= ~GPIO_ODR_ODR4; // CS=0 – указание дисплею, что данные адресованы ему
+    delay_us(1000);
+    SPI1_Write(data);
+    GPIOA->ODR |= GPIO_ODR_ODR4; // CS=1 – окончание передачи данных
+}
+
+void dat(uint8_t data){
+    GPIOA->ODR |= GPIO_ODR_ODR12; // A0=1 --указание на то, что отправляем данные
+    GPIOA->ODR &= ~GPIO_ODR_ODR4; // CS=0 – указание дисплею, что данные адресованы ему
+    delay_us(1000);
+    SPI1_Write(data);
+    GPIOA->ODR |= GPIO_ODR_ODR4; // CS=1 – окончание передачи данных
+}
+
 /* EXTI0 Interrupt handler */
 void EXTI0_IRQHandler() {
     EXTI->PR=EXTI_PR_PR0; // Сбрасываем прерывание
@@ -55,9 +82,50 @@ int main(void) {
     // i = i | mask; // i |= mask;
 
     /* IO PORTS Configuration */
-    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN; // 0b10000=0x10
+    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN | RCC_APB2ENR_IOPAEN; // 0b10000=0x10
     GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13); // GPIOC->CRH[23:20]=0000
     GPIOC->CRH |= GPIO_CRH_MODE13_0; // GPIOC->CRH[23:20]=0001
+
+    //SPI IO Configuration
+    GPIOA->CRL &= ~(GPIO_CRL_CNF4 | GPIO_CRL_MODE4); // GPIOC->CRH[23:20]=0000
+    GPIOA->CRL |= GPIO_CRL_MODE4_0; // GPIOC->CRH[23:20]=0001
+    GPIOA->CRL &= ~(GPIO_CRL_CNF5 | GPIO_CRL_MODE5); 
+    GPIOA->CRL |= GPIO_CRL_MODE5_0 | GPIO_CRL_CNF5_1; 
+    GPIOA->CRL &= ~(GPIO_CRL_CNF7 | GPIO_CRL_MODE7); 
+    GPIOA->CRL |= GPIO_CRL_MODE7_0 | GPIO_CRL_CNF7_1; 
+    GPIOA->CRH &= ~(GPIO_CRH_CNF11 | GPIO_CRH_MODE11);
+    GPIOA->CRH |= GPIO_CRH_MODE11_0; 
+    GPIOA->CRH &= ~(GPIO_CRH_CNF12 | GPIO_CRH_MODE12); 
+    GPIOA->CRH |= GPIO_CRH_MODE12_0;
+    SPI1->CR1 &= ~SPI_CR1_DFF;
+    SPI1->CR1 &= ~SPI_CR1_CRCEN;
+    SPI1->CR1 |= SPI_CR1_SSI;
+    SPI1->CR1 |= SPI_CR1_SSM;
+    SPI1->CR1 &= ~SPI_CR1_BR;
+    SPI1->CR1 |= SPI_CR1_BR_2;
+    SPI1->CR1 |= SPI_CR1_MSTR;
+    SPI1->CR1 &= ~SPI_CR1_CPOL;
+    SPI1->CR1 &= ~SPI_CR1_CPHA;
+    SPI1->CR1 |= SPI_CR1_SPE;
+
+    //
+    GPIOA->ODR &= ~GPIO_ODR_ODR4; // CS=0
+    GPIOA->ODR &= ~GPIO_ODR_ODR11; // RESET=0 - аппаратный сброс
+    delay_us(10000); // Wait for the power stabilized
+    GPIOA->ODR |= GPIO_ODR_ODR11; // RESET=1
+    delay_us(1000); // Wait <1ms
+
+    cmd(0xA2); //LCD Drive set 1/9 bias
+    cmd(0xA0); // RAM Address SEG Output normal
+    cmd(0xC8); // Common output mode selection
+    cmd(0x28 | 0x07); // Power control mode
+    cmd(0x20 | 0x05); // Voltage regulator
+    cmd(0xA6); // Normal color, A7 = inverse color
+    cmd(0xAF); // Display on
+
+    while(1){
+        dat(0xFF);
+    }
 
     // Port PB0 as Input
     RCC->APB2ENR |= RCC_APB2ENR_IOPBEN | RCC_APB2ENR_AFIOEN; // 0b10000=0x10
@@ -86,8 +154,16 @@ int main(void) {
         __asm volatile ("nop");
     }
 
+    cmd(0xB0);
+    cmd(0b00010000);
+    cmd(0x00);
     while(1){
-
+        if(GPIOB->IDR & GPIO_IDR_IDR0){
+            GPIOC->ODR &= ~GPIO_ODR_ODR13;
+        } else {
+            GPIOC->ODR |= GPIO_ODR_ODR13;
+        }
+        dat(0b10101010);
     }
 
     /*while(1){
