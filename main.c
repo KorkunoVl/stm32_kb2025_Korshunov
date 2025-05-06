@@ -6,6 +6,9 @@
 #define LCD_H 8
 #define font_W 11
 
+int seconds[4] = {0,0,0,0};
+bool timersEnabled[4] = {true, true, true, true}; 
+
 uint8_t font[2][font_W * 10] = {// 'font2', 109x16px
 0xff, 0xff, 0xff, 0x07, 0x07, 0x07, 0x07, 0xff, 0xff, 0xff, 0x00, 0x78, 0x78, 0x78, 0xff, 0xff, 
 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0xc7, 0xc7, 0xc7, 0xc7, 0xc7, 0xc7, 0xc7, 0xff, 0xff, 0xff, 
@@ -105,20 +108,6 @@ void delay_us(uint32_t us) { //8 ticks/iteration
     );
 }
 
-/* Interrupt handler*/
-void TIM2_IRQHandler(void) {
-    if (TIM2->SR & TIM_SR_UIF) {
-        if(GPIOC->ODR & GPIO_ODR_ODR13){
-            GPIOC->ODR &= ~GPIO_ODR_ODR13;
-        } else {
-            GPIOC->ODR |= GPIO_ODR_ODR13;
-        }
-
-    //Clear interrupt flag
-    TIM2->SR &= ~TIM_SR_UIF;
-    }
-}
-
 void SPI1_Write(uint8_t data){
     while(!(SPI1->SR & SPI_SR_TXE));
     SPI1->DR = data;
@@ -170,7 +159,7 @@ void update_timer(int timer, int hours, int minutes){
     int timers[4][2] = {{6, 8}, {76, 8}, {6, 48}, {76, 48}};
     y = timers[timer - 1][0];
     x = timers[timer - 1][1];
-    update_digit(x, y, hours /10);
+    update_digit(x, y, hours / 10);
     update_digit(x, y + font_W, hours % 10);
     update_digit(x, y + font_W * 2 + 4, minutes / 10);
     update_digit(x, y + font_W * 3 + 4, minutes % 10);
@@ -187,6 +176,25 @@ void EXTI0_IRQHandler() {
         blink_on = 1;
     }
     delay_us(100);
+}
+
+/* Interrupt handler*/
+void TIM2_IRQHandler(void) {
+    if (TIM2->SR & TIM_SR_UIF) {
+        if(GPIOC->ODR & GPIO_ODR_ODR13){
+            GPIOC->ODR &= ~GPIO_ODR_ODR13;
+        } else {
+            GPIOC->ODR |= GPIO_ODR_ODR13;
+        }
+    for(int i=0; i<4; i++){
+        if (timersEnabled[i] == true){
+            seconds[i] += 1;
+            update_timer(i+1, seconds[0] / 60, seconds[0] % 60);
+        }
+    }
+        //Clear interrupt flag
+        TIM2->SR &= ~TIM_SR_UIF;
+    }
 }
 
 int main(void) {
@@ -250,23 +258,21 @@ int main(void) {
     NVIC_EnableIRQ(EXTI0_IRQn); // Enable interrupt EXTI0
 
     /* TIM2 Configuration */
-    /*RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
     RCC->APB1RSTR |= RCC_APB1RSTR_TIM2RST;
     RCC->APB1RSTR &= ~RCC_APB1RSTR_TIM2RST;
-    TIM2->PSC = 2000;
-    TIM2->ARR = 2000;
+    TIM2->PSC = 4000;
+    TIM2->ARR = 20000;
     TIM2->DIER |= TIM_DIER_UIE; // Enable Update Interrupt
     NVIC_ClearPendingIRQ(TIM2_IRQn);
     NVIC_EnableIRQ(TIM2_IRQn); // Enable IRQ in NVIC
     TIM2->CR1 |= TIM_CR1_CEN; // Start timer
-    while (1) {
-        __asm volatile ("nop");
-    }*/
+  
 
     //cmd(0xB0);
-
     //cmd(0x00);
-    load_buf();
+
+    //load_buf();
 
     /*while(1){
         GPIOC->ODR &= ~GPIO_ODR_ODR13;
@@ -276,9 +282,14 @@ int main(void) {
     }*/
 
     for(int i = 0; i<4; i++){
-        update_timer(i+1, 0, 0);
+        update_timer(i+1, 0, 1);
     }
 
-    load_buf();
+    while(1){
+        load_buf();
+        if (GPIOB->IDR & GPIO_IDR_IDR12){
+            timersEnabled[0] = false;
+        }
+    }
 return 0;
 }
