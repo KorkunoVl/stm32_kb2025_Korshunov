@@ -172,8 +172,8 @@ void update_timer(int timer, int hours, int minutes){
     x = timers[timer - 1][1];
     update_digit(x, y, hours /10);
     update_digit(x, y + font_W, hours % 10);
-    update_digit(x, y + font_W * 2 + 4, hours / 10);
-    update_digit(x, y + font_W * 3 + 4, hours % 10);
+    update_digit(x, y + font_W * 2 + 4, minutes / 10);
+    update_digit(x, y + font_W * 3 + 4, minutes % 10);
 }
 
 /* EXTI0 Interrupt handler */
@@ -275,7 +275,10 @@ int main(void) {
         delay_us(1000000);
     }*/
 
-   update_timer(3, 12, 0);
-   load_buf();
+    for(int i = 0; i<4; i++){
+        update_timer(i+1, 0, 0);
+    }
+
+    load_buf();
 return 0;
 }
