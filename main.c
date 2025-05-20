@@ -148,9 +148,19 @@ void load_buf(){
 
 void update_digit(int x, int y, int digit){
     int p = x / 8;
+    cmd(0b10110000 | p);
+    cmd(0b00010000 | (y & 0b11110000 >> 4));
+    cmd(0b00000000 | (y & 0b1111));    
     for(int i = 0; i < font_W; i++){
         LCD_buf[p][y + i] = font[0][font_W * digit + i];
+        dat(LCD_buf[p][y + i]);
+    }
+    cmd(0b10110000 | p + 1);
+    cmd(0b00010000 | (y & 0b11110000 >> 4));
+    cmd(0b00000000 | (y & 0b1111));
+    for(int i = 0; i < font_W; i++){
         LCD_buf[p + 1][y + i] = font[1][font_W * digit + i];
+        dat(LCD_buf[p + 1][y + i]);
     }
 }
 
@@ -194,7 +204,7 @@ void TIM2_IRQHandler(void) {
             GPIOC->ODR |= GPIO_ODR_ODR13;
         }
     for(int i=0; i<4; i++){
-        if (timersEnabled[i] == true){
+        if (timersEnabled[i] == true) {
             seconds[i] += 1;
             update_timer(i+1, seconds[0] / 60, seconds[0] % 60);
         }
@@ -231,6 +241,21 @@ int main(void) {
     GPIOA->CRH |= GPIO_CRH_MODE11_0; 
     GPIOA->CRH &= ~(GPIO_CRH_CNF12 | GPIO_CRH_MODE12); 
     GPIOA->CRH |= GPIO_CRH_MODE12_0;
+
+
+    GPIOB->CRH &= ~(GPIO_CRH_CNF12 | GPIO_CRH_MODE12); //B12
+    GPIOB->CRH |= GPIO_CRH_CNF12_1;
+    GPIOB->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13); //B13
+    GPIOB->CRH |= GPIO_CRH_CNF13_1;
+    GPIOB->CRH &= ~(GPIO_CRH_CNF14 | GPIO_CRH_MODE14); //B14
+    GPIOB->CRH |= GPIO_CRH_CNF14_1;
+    GPIOB->CRH &= ~(GPIO_CRH_CNF15 | GPIO_CRH_MODE15); //B15
+    GPIOB->CRH |= GPIO_CRH_CNF15_1;
+
+    GPIOB->ODR |= (GPIO_ODR_ODR12 | GPIO_ODR_ODR13 | GPIO_ODR_ODR14 | GPIO_ODR_ODR15); 
+
+
+
     SPI1->CR1 &= ~SPI_CR1_DFF;
     SPI1->CR1 &= ~SPI_CR1_CRCEN;
     SPI1->CR1 |= SPI_CR1_SSI;
@@ -302,11 +327,27 @@ int main(void) {
         update_timer(i+1, 0, 1);
     }
 
+    uint32_t count;
     while(1){
-        UART1_Write('S');
-        load_buf();
-        if (GPIOB->IDR & GPIO_IDR_IDR12){
-            timersEnabled[0] = false;
+        if ((GPIOB->IDR & GPIO_IDR_IDR12) == 0){
+            count = 0;
+            delay_us(20);
+            while ((GPIOB->IDR & GPIO_IDR_IDR12) == 0){
+                count += 1;
+            }
+            delay_us(20);
+            if (count > 5000000){
+                update_timer(1, 0, 0);
+                timersEnabled[0] = false;
+            }
+            else {
+                if (timersEnabled[0] == false){
+                    timersEnabled[0] = true;
+                }
+                else {
+                    timersEnabled[0] = false;
+                }
+            }
         }
     }
 return 0;
