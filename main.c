@@ -7,7 +7,7 @@
 #define font_W 11
 
 int seconds[4] = {0,0,0,0};
-bool timersEnabled[4] = {true, true, true, true}; 
+bool timersEnabled[4] = {false, false, false, false}; 
 
 uint8_t font[2][font_W * 10] = {// 'font2', 109x16px
 0xff, 0xff, 0xff, 0x07, 0x07, 0x07, 0x07, 0xff, 0xff, 0xff, 0x00, 0x78, 0x78, 0x78, 0xff, 0xff, 
@@ -155,7 +155,7 @@ void update_digit(int x, int y, int digit){
         LCD_buf[p][y + i] = font[0][font_W * digit + i];
         dat(LCD_buf[p][y + i]);
     }
-    cmd(0b10110000 | p + 1);
+    cmd(0b10110000 | (p + 1));
     cmd(0b00010000 | (y & 0b11110000 >> 4));
     cmd(0b00000000 | (y & 0b1111));
     for(int i = 0; i < font_W; i++){
@@ -173,13 +173,6 @@ void update_timer(int timer, int hours, int minutes){
     update_digit(x, y + font_W, hours % 10);
     update_digit(x, y + font_W * 2 + 4, minutes / 10);
     update_digit(x, y + font_W * 3 + 4, minutes % 10);
-}
-
-void UART1_Write(uint8_t data) {
-    //Ждем, пока не освободится буфер передатчика
-    while ((USART1->SR & USART_SR_TXE) == 0);
-    //заполняем буфер передатчика
-    USART1->DR = data;
 }
 
 /* EXTI0 Interrupt handler */
@@ -220,56 +213,8 @@ int main(void) {
     // i = i | mask; // i |= mask;
 
     /* IO PORTS Configuration */
-    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPAEN | RCC_APB2ENR_SPI1EN | RCC_APB2ENR_USART1EN; // 0b10000=0x10
-    GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13); // GPIOC->CRH[23:20]=0000
-    GPIOC->CRH |= GPIO_CRH_MODE13_0; // GPIOC->CRH[23:20]=0001
+    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPAEN | RCC_APB2ENR_SPI1EN; // 0b10000=0x10
 
-    //SPI IO Configuration
-    GPIOA->CRL &= ~(GPIO_CRL_CNF4 | GPIO_CRL_MODE4); // GPIOC->CRH[23:20]=0000
-    GPIOA->CRL |= GPIO_CRL_MODE4_0; // GPIOC->CRH[23:20]=0001
-    GPIOA->CRL &= ~(GPIO_CRL_CNF5 | GPIO_CRL_MODE5); 
-    GPIOA->CRL |= GPIO_CRL_MODE5_0 | GPIO_CRL_CNF5_1; 
-    GPIOA->CRL &= ~(GPIO_CRL_CNF7 | GPIO_CRL_MODE7); 
-    GPIOA->CRL |= GPIO_CRL_MODE7_0 | GPIO_CRL_CNF7_1;
-    GPIOA->CRH &= ~(GPIO_CRH_CNF9 | GPIO_CRH_MODE9); 
-    GPIOA->CRH |= GPIO_CRH_MODE9_0;
-    GPIOA->CRH |= GPIO_CRH_CNF9_1; 
-    GPIOA->CRH &= ~(GPIO_CRH_CNF10 | GPIO_CRH_MODE10); 
-    GPIOA->CRH |= GPIO_CRH_CNF10_1; 
-    GPIOA->ODR |= GPIO_ODR_ODR10; 
-    GPIOA->CRH &= ~(GPIO_CRH_CNF11 | GPIO_CRH_MODE11);
-    GPIOA->CRH |= GPIO_CRH_MODE11_0; 
-    GPIOA->CRH &= ~(GPIO_CRH_CNF12 | GPIO_CRH_MODE12); 
-    GPIOA->CRH |= GPIO_CRH_MODE12_0;
-
-
-    GPIOB->CRH &= ~(GPIO_CRH_CNF12 | GPIO_CRH_MODE12); //B12
-    GPIOB->CRH |= GPIO_CRH_CNF12_1;
-    GPIOB->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13); //B13
-    GPIOB->CRH |= GPIO_CRH_CNF13_1;
-    GPIOB->CRH &= ~(GPIO_CRH_CNF14 | GPIO_CRH_MODE14); //B14
-    GPIOB->CRH |= GPIO_CRH_CNF14_1;
-    GPIOB->CRH &= ~(GPIO_CRH_CNF15 | GPIO_CRH_MODE15); //B15
-    GPIOB->CRH |= GPIO_CRH_CNF15_1;
-
-    GPIOB->ODR |= (GPIO_ODR_ODR12 | GPIO_ODR_ODR13 | GPIO_ODR_ODR14 | GPIO_ODR_ODR15); 
-
-
-
-    SPI1->CR1 &= ~SPI_CR1_DFF;
-    SPI1->CR1 &= ~SPI_CR1_CRCEN;
-    SPI1->CR1 |= SPI_CR1_SSI;
-    SPI1->CR1 |= SPI_CR1_SSM;
-    SPI1->CR1 &= ~SPI_CR1_BR;
-    //SPI1->CR1 |= SPI_CR1_BR_2;
-    SPI1->CR1 |= SPI_CR1_MSTR;
-    SPI1->CR1 &= ~SPI_CR1_CPOL;
-    SPI1->CR1 &= ~SPI_CR1_CPHA;
-    SPI1->CR1 |= SPI_CR1_SPE;
-
-    // Enable USART
-    USART1->CR1 |= USART_CR1_UE | USART_CR1_TE | USART_CR1_RE;
-    USART1->BRR = 7500;
 
     //
     GPIOA->ODR &= ~GPIO_ODR_ODR4; // CS=0
@@ -327,17 +272,18 @@ int main(void) {
         update_timer(i+1, 0, 1);
     }
 
-    uint32_t count;
+    uint32_t count = 0;
     while(1){
         if ((GPIOB->IDR & GPIO_IDR_IDR12) == 0){
             count = 0;
-            delay_us(20);
+            delay_us(50);
             while ((GPIOB->IDR & GPIO_IDR_IDR12) == 0){
                 count += 1;
             }
-            delay_us(20);
-            if (count > 5000000){
+            delay_us(50);
+            if (count > 2500000){
                 update_timer(1, 0, 0);
+                seconds[0] = 0;
                 timersEnabled[0] = false;
             }
             else {
