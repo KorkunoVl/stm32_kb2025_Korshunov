@@ -165,6 +165,13 @@ void update_timer(int timer, int hours, int minutes){
     update_digit(x, y + font_W * 3 + 4, minutes % 10);
 }
 
+void UART1_Write(uint8_t data) {
+    //Ждем, пока не освободится буфер передатчика
+    while ((USART1->SR & USART_SR_TXE) == 0);
+    //заполняем буфер передатчика
+    USART1->DR = data;
+}
+
 /* EXTI0 Interrupt handler */
 void EXTI0_IRQHandler() {
     EXTI->PR=EXTI_PR_PR0; // Сбрасываем прерывание
@@ -203,7 +210,7 @@ int main(void) {
     // i = i | mask; // i |= mask;
 
     /* IO PORTS Configuration */
-    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN | RCC_APB2ENR_IOPAEN | RCC_APB2ENR_SPI1EN; // 0b10000=0x10
+    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN | RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPAEN | RCC_APB2ENR_SPI1EN | RCC_APB2ENR_USART1EN; // 0b10000=0x10
     GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13); // GPIOC->CRH[23:20]=0000
     GPIOC->CRH |= GPIO_CRH_MODE13_0; // GPIOC->CRH[23:20]=0001
 
@@ -213,7 +220,13 @@ int main(void) {
     GPIOA->CRL &= ~(GPIO_CRL_CNF5 | GPIO_CRL_MODE5); 
     GPIOA->CRL |= GPIO_CRL_MODE5_0 | GPIO_CRL_CNF5_1; 
     GPIOA->CRL &= ~(GPIO_CRL_CNF7 | GPIO_CRL_MODE7); 
-    GPIOA->CRL |= GPIO_CRL_MODE7_0 | GPIO_CRL_CNF7_1; 
+    GPIOA->CRL |= GPIO_CRL_MODE7_0 | GPIO_CRL_CNF7_1;
+    GPIOA->CRH &= ~(GPIO_CRH_CNF9 | GPIO_CRH_MODE9); 
+    GPIOA->CRH |= GPIO_CRH_MODE9_0;
+    GPIOA->CRH |= GPIO_CRH_CNF9_1; 
+    GPIOA->CRH &= ~(GPIO_CRH_CNF10 | GPIO_CRH_MODE10); 
+    GPIOA->CRH |= GPIO_CRH_CNF10_1; 
+    GPIOA->ODR |= GPIO_ODR_ODR10; 
     GPIOA->CRH &= ~(GPIO_CRH_CNF11 | GPIO_CRH_MODE11);
     GPIOA->CRH |= GPIO_CRH_MODE11_0; 
     GPIOA->CRH &= ~(GPIO_CRH_CNF12 | GPIO_CRH_MODE12); 
@@ -228,6 +241,10 @@ int main(void) {
     SPI1->CR1 &= ~SPI_CR1_CPOL;
     SPI1->CR1 &= ~SPI_CR1_CPHA;
     SPI1->CR1 |= SPI_CR1_SPE;
+
+    // Enable USART
+    USART1->CR1 |= USART_CR1_UE | USART_CR1_TE | USART_CR1_RE;
+    USART1->BRR = 7500;
 
     //
     GPIOA->ODR &= ~GPIO_ODR_ODR4; // CS=0
@@ -286,6 +303,7 @@ int main(void) {
     }
 
     while(1){
+        UART1_Write('S');
         load_buf();
         if (GPIOB->IDR & GPIO_IDR_IDR12){
             timersEnabled[0] = false;
